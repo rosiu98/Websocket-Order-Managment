@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Page</title>
+  </head>
+  <body>
+    <h1>Admin Page</h1>
+    <ul id="adminOrderList"></ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io({
+        auth: {
+          isAdmin: true, // This user is an admin
+        },
+      });
+
+      const adminOrderList = document.querySelector("#adminOrderList");
+
+      const fetchData = async () => {
+        const request = await fetch("http://localhost:3000/database");
+
+        const data = await request.json();
+
+        console.log(data);
+
+        data.map((item) =>
+          adminOrderList.insertAdjacentHTML(
+            "beforeend",
+            `<li data-order-id="${item.id}">${item.name} - ${item.state}</li>`
+          )
+        );
+      };
+
+      fetchData();
+
+      socket.on("newOrder", (order) => {
+        console.log("Admin log: " + order.name);
+        const listItem = document.createElement("li");
+        listItem.textContent = `${order.name} - ${order.state}`;
+        listItem.dataset.orderId = order.id;
+        adminOrderList.appendChild(listItem);
+      });
+
+      socket.on("orderStateUpdate", ({ orderId, newState }) => {
+        const listItem = document.querySelector(`[data-order-id="${orderId}"]`);
+
+        if (listItem) {
+          listItem.textContent = `${
+            listItem.textContent.split(" - ")[0]
+          } - ${newState}`;
+        }
+      });
+
+      adminOrderList.addEventListener("click", (e) => {
+        if (e.target.tagName === "LI") {
+          const orderId = e.target.dataset.orderId;
+          const newState = prompt(
+            "Enter the new state (e.g., In Progress, Delivering, Done):"
+          );
+
+          if (newState) {
+            socket.emit("updateOrderState", { orderId, newState });
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

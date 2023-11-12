@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Order Management</title>
+  </head>
+  <body>
+    <h1>Order Management System</h1>
+    <form id="orderForm">
+      <label for="orderName">Order Name:</label>
+      <input type="text" id="orderName" required />
+      <button type="submit">Submit Order</button>
+    </form>
+
+    <ul id="orderList"></ul>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+      const socket = io();
+
+      const orderForm = document.getElementById("orderForm");
+      const orderNameInput = document.getElementById("orderName");
+      const orderList = document.getElementById("orderList");
+
+      const generateOrderId = () => {
+        return "_" + Math.random().toString(36).substr(2, 9);
+      };
+
+      const fetchData = async () => {
+        const request = await fetch("http://localhost:3000/database");
+
+        const data = await request.json();
+
+        console.log(data);
+
+        data.map((item) =>
+          orderList.insertAdjacentHTML(
+            "beforeend",
+            `<li data-order-id="${item.id}">${item.name} - ${item.state}</li>`
+          )
+        );
+      };
+
+      fetchData();
+
+      orderForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const orderName = orderNameInput.value;
+
+        if (orderName.trim()) {
+          socket.emit("submitOrder", {
+            name: orderName,
+            state: "In Progress",
+          });
+          orderNameInput.value = "";
+        }
+      });
+
+      socket.on("newOrder", (order) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = `${order.name} - ${order.state}`;
+        listItem.setAttribute("data-order-id", order.id);
+
+        orderList.appendChild(listItem);
+      });
+
+      socket.on("orderStateUpdate", ({ orderId, newState }) => {
+        const listItem = document.querySelector(`[data-order-id="${orderId}"]`);
+
+        if (listItem) {
+          listItem.textContent = `${
+            listItem.textContent.split(" - ")[0]
+          } - ${newState}`;
+        }
+      });
+    </script>
+  </body>
+</html>
